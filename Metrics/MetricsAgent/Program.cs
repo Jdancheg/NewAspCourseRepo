@@ -1,3 +1,10 @@
+using MetricsAgent.Models;
+using MetricsAgent.Services;
+using MetricsAgent.Services.Impl;
+using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi.Models;
+using System.Data.SQLite;
+
 namespace MetricsAgent
 {
     public class Program
@@ -8,13 +15,25 @@ namespace MetricsAgent
 
             // Add services to the container.
 
+            builder.Services.AddScoped<ICpuMetricsRepository, CpuMetricsRepository>();
+
+            //ConfigureSqlLiteConnection();
+
+
             builder.Services.AddControllers();
-
-
-
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "MetricsAgent", Version = "v1" });
+
+                // Поддержка TimeSpan
+                c.MapType<TimeSpan>(() => new OpenApiSchema
+                {
+                    Type = "string",
+                    Example = new OpenApiString("00:00:00")
+                });
+            });
 
             var app = builder.Build();
 
@@ -26,11 +45,41 @@ namespace MetricsAgent
             }
 
             app.UseAuthorization();
-
+            app.UseHttpLogging();
 
             app.MapControllers();
 
             app.Run();
         }
+
+        /// <summary>
+        /// Метод устанавливает соединение с существующей локальной БД.
+        /// Если БД не существует, то создает новую пустую БД.
+        /// </summary>
+        private static void ConfigureSqliteConnection()
+        {
+            const string connectionString = @"DataSource = metrics.db; Version = 3; Pooling = true; Max Pool Size = 100;";
+            var connection = new SQLiteConnection(connectionString); 
+            connection.Open();
+            PrepareSchema(connection);
+        }
+
+        /// <summary>
+        /// Метод обнуляет таблицу cpumetrics в БД
+        /// </summary>
+        /// <param name="connection"></param>
+        private static void PrepareSchema(SQLiteConnection connection)
+        {
+            using (var command = new SQLiteCommand(connection))
+            {
+                // Если в БД есть таблица, cpumetrcis, удалить ее!
+                command.CommandText = "DROP TABLE IF EXISTS cpumetrics";
+                command.ExecuteNonQuery();
+                // Создать новую таблицу cpumetrcis
+                command.CommandText = @"CREATE TABLE cpumetrics(id INTEGER PRIMARY KEY, value INT, time INT)";
+                command.ExecuteNonQuery();
+            }
+        }
+
     }
 }

@@ -2,6 +2,22 @@
 {
     public class AgentPool
     {
+        // Это все, чтобы был только 1 объект типа AgentPool
+
+        private static AgentPool _instance;
+
+        public static AgentPool Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new AgentPool();
+                }
+                return _instance;
+            }
+        }
+
         // 0. ----- Конструкторы ----- 
         public AgentPool()
         {
